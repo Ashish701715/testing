@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Form with API and Loading</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        form {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        input[type="url"],
+        input[type="number"] {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.25rem;
+            font-size: 1rem;
+        }
+
+        .number-input {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .number-input input {
+            flex-grow: 1;
+            margin-right: 0.5rem;
+        }
+
+        button {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #2563eb;
+        }
+
+        .add-number {
+            background-color: transparent;
+            color: #3b82f6;
+            border: 1px solid #3b82f6;
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+
+        .add-number:hover {
+            background-color: #eff6ff;
+        }
+
+        .remove-number {
+            background-color: transparent;
+            color: #ef4444;
+            border: 1px solid #ef4444;
+            padding: 0.25rem 0.5rem;
+        }
+
+        .remove-number:hover {
+            background-color: #fef2f2;
+        }
+
+        .error {
+            color: #ef4444;
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+
+        .loading {
+            display: none;
+            margin-top: 1rem;
+            color: #10b981;
+        }
+    </style>
+</head>
+
+<body>
+    <form id="dynamicForm">
+        <div class="form-group">
+            <label for="fileLink">File Link</label>
+            <input type="url" id="fileLink" name="fileLink" placeholder="Enter file link" required>
+            <div id="fileLinkError" class="error"></div>
+        </div>
+
+        <div class="form-group">
+            <label>Numbers (Add up to 3)</label>
+            <div id="numberInputs">
+                <div class="number-input">
+                    <input type="number" name="numbers[]" placeholder="Number 1" required>
+                </div>
+            </div>
+            <button type="button" class="add-number" id="addNumber">+ Add Number</button>
+        </div>
+
+        <button type="submit" id="submitButton">Submit</button>
+        <div id="numberError" class="error"></div>
+        <div class="loading" id="loadingMessage">Please wait, sending messages...</div>
+    </form>
+
+    <script>
+        const MAX_NUMBERS = 3;
+
+        document.getElementById('addNumber').addEventListener('click', function () {
+            const numberInputs = document.getElementById('numberInputs');
+
+            if (numberInputs.children.length < MAX_NUMBERS) {
+                const newInput = document.createElement('div');
+                newInput.className = 'number-input';
+                newInput.innerHTML = `
+                    <input type="number" name="numbers[]" placeholder="Number ${numberInputs.children.length + 1}" required>
+                    <button type="button" class="remove-number">-</button>
+                `;
+                numberInputs.appendChild(newInput);
+
+                newInput.querySelector('.remove-number').addEventListener('click', function () {
+                    numberInputs.removeChild(newInput);
+                });
+            } else {
+                alert(`You can only add up to ${MAX_NUMBERS} numbers.`);
+            }
+        });
+
+        document.getElementById('dynamicForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            // Clear previous error messages
+            document.getElementById('fileLinkError').textContent = '';
+            document.getElementById('numberError').textContent = '';
+
+            const fileLink = document.getElementById('fileLink').value;
+            const numberInputs = Array.from(document.getElementsByName('numbers[]'));
+            const numbers = numberInputs.map(input => input.value);
+            const submitButton = document.getElementById('submitButton');
+            const loadingMessage = document.getElementById('loadingMessage');
+
+            let valid = true;
+
+            // Check for empty file link
+            if (!fileLink) {
+                document.getElementById('fileLinkError').textContent = 'Please enter a file link.';
+                valid = false;
+            }
+
+            // Check for empty number fields
+            const emptyNumbers = numberInputs.filter(input => input.value === '');
+            if (emptyNumbers.length > 0 || numbers.length > MAX_NUMBERS) {
+                document.getElementById('numberError').textContent = 'Please fill out all number fields (maximum 3 numbers).';
+                valid = false;
+            }
+
+            // If form is valid, show loading message and send API requests
+            if (valid) {
+                // Disable submit button and show loading message
+                submitButton.textContent = 'Loading...';
+                submitButton.disabled = true;
+                loadingMessage.style.display = 'block';
+
+                for (let number of numbers) {
+                    const apiUrl = `https://panel.rapiwha.com/send_message.php?apikey=C3XLATX4C2RPUNGNUXYH&number=91${number}&text=${fileLink}`;
+
+                    try {
+                        const response = await fetch(apiUrl, {
+                            method: 'GET'
+                        });
+
+                        const data = await response.json();
+
+                    } catch (error) {
+                        console.error(`Error sending message to ${number}:`, error);
+                    }
+                }
+
+                // After submission, hide loading message, reset form, and re-enable submit button
+                loadingMessage.style.display = 'none';
+                submitButton.textContent = 'Submit';
+                submitButton.disabled = false;
+                document.getElementById('dynamicForm').reset();
+                document.getElementById('numberInputs').innerHTML = `
+                    <div class="number-input">
+                        <input type="number" name="numbers[]" placeholder="Number 1" required>
+                    </div>`;
+            }
+        });
+    </script>
+</body>
+
+</html>
